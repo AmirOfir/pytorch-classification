@@ -1,6 +1,7 @@
 '''VGG for CIFAR10. FC layers are removed.
 (c) YANG, Wei 
 '''
+import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import math
@@ -18,6 +19,14 @@ model_urls = {
     'vgg16': 'https://download.pytorch.org/models/vgg16-397923af.pth',
     'vgg19': 'https://download.pytorch.org/models/vgg19-dcbb9e9d.pth',
 }
+
+class StackedAvgPool(nn.Module):
+  def __init__(self, kernel_dim,stride,padding):
+    super(StackedAvgPool, self).__init__()
+    self.avgpool = nn.AvgPool2d(kernel_dim, stride=stride, padding=padding)
+  def forward(self,x):
+    y = self.avgpool(x)
+    return torch.cat([x,y], 1)
 
 
 class VGG(nn.Module):
@@ -58,10 +67,11 @@ def make_layers(cfg, batch_norm=False):
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
             conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
+            layers += [StackedAvgPool(3, 1, 1), conv2d]
             if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
-            else:
-                layers += [conv2d, nn.ReLU(inplace=True)]
+                layers += [nn.BatchNorm2d(v)]
+            
+            layers += [nn.ReLU(inplace=True)]
             in_channels = v
     return nn.Sequential(*layers)
 
